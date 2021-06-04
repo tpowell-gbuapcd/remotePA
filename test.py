@@ -5,6 +5,8 @@ import busio
 import adafruit_tca9548a
 import adafruit_ina219
 
+from datetime import datetime
+
 '''
 Test script for testing I2C INA219 boards and QWIIC MUX board
 Build library for future scripts using INA219 and MUX board
@@ -70,6 +72,8 @@ raspberry_pi = adafruit_ina219.INA219(tca[3])
 WiFi = adafruit_ina219.INA219(tca[4])
 comms  = adafruit_ina219.INA219(tca[7])
 
+#print(datetime.now().strftime("%m/%d/%Y %H:%M:%S"))
+
 i = 0
 while i < 1:
     print("PurpleAir Voltage:      {:.2f}V, PurpleAir Current:      {:.2f}mA".format(purple_air.bus_voltage, purple_air.current))
@@ -86,7 +90,4 @@ while i < 1:
     print()
     
     time.sleep(1)
-    i+=1
-
-
-
+    i += 1
