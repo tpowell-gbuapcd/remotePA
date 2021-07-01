@@ -6,6 +6,7 @@ import adafruit_tca9548a
 import adafruit_ina219
 import adafruit_ssd1306
 import argparse
+import csv
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,10 +17,6 @@ from datetime import datetime
 '''
 LIBRARY FOR REMOTE PA DATA CAPTURE AND EXPORT
 '''
-
-#PA_mux = qwiic.QwiicTCA9548A()
-HEIGHT = 128
-WIDTH = 32
 
 def mux_init():
     '''
@@ -85,7 +82,8 @@ def dict_init(points):
     '''
 
     new_dict = {}
-
+    
+    new_dict["time"] = np.zeros(points)
     new_dict["purpleair"] = np.zeros((3, points))
     new_dict["wifi"] = np.zeros((3, points))
     new_dict["rpi"] = np.zeros((3, points))
@@ -119,8 +117,79 @@ def avg_dict_init(tests):
     return new_dict
 
 
+def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
+    '''
+    Write the data from the IN219s to file for export
+
+    input param: pa_channel, list of channels to enable (default = all)
+    input param: wait_time, capture data points every wait_time seconds
+    input param: n_points, number of data points to capture
+    input param: n_test, number of separate tests for data capture
+    input param: data_dict, dictionary containing all of the arrays needed to store data from I2C devices
+    '''
+
+    j = 0
+
+    #pa_mux, tca_board = mux_init()
+    #channel_enable(pa_mux, pa_channel)
+    #channel_status(pa_mux)
+
+    purple_air = adafruit_ina219.INA219(tca[0])
+    raspberry_pi = adafruit_ina219.INA219(tca[7])
+    wifi = adafruit_ina219.INA219(tca[4])
+    comms  = adafruit_ina219.INA219(tca[3])
+    
+    print("Args: ", wait_time, n_points, n_tests)
+    print("Testing File Writer")
+    print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
+    # begin n number of test runs
+    
+    # file_name = "test_" +  datetime.now()strftime("%m%d%Y%H%M%S") + ".csv"
+    header_vals = ['Time', 'PA Current', 'PA Power', 'PA Voltage', 'WIFI Current', 'WIFI Power', 'WIFI Voltage',
+                    'RPi Current', 'RPi Power', 'RPi Voltage', 'Comms Current', 'Comms Power', 'Comms Voltage']
+
+    while j < n_tests:
+            
+        start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        file_name = "test_" + str(j) + "_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
+
+        print("Run Start Time: {}".format(start_time))
+        print("Test run {} of {}".format(str(j+1), str(n_tests)))
+
+        # begin new test run
+        # reinitialize arrays to zero for appending
+        # probably write a write_csv file too, to save test runs in text format
+        i = 0
+         
+        with open(file_name, 'w', newline = '') as f:
+        
+            file_writer = csv.writer(f, delimiter = ',')
+        
+            while i < n_points:
+                
+                #file_writer = csv.writer(f, delimiter = ',')
+        
+                if i == 0:
+                    file_writer.writerow(header_vals)
+
+                row = [datetime.now().strftime("%m/%d/%Y %H:%M:%S"), purple_air.current, purple_air.power, purple_air.bus_voltage,
+                        wifi.current, wifi.power, wifi.bus_voltage, raspberry_pi.current, raspberry_pi.power, raspberry_pi.bus_voltage,
+                        comms.current, comms.power, comms.bus_voltage]
+
+                file_writer.writerow(row)
+                time.sleep(wait_time)
+
+                i += 1
+            
+            j += 1
+            
+            f.close()
+
+
 def time_test(pa_channel, wait_time, n_points, n_tests):
     '''
+    Test the collection of data from the IN219s. 
+
     input param: pa_channel, list of channels to enable (default = all)
     input param: wait_time, capture data points every wait_time seconds
     input param: n_points, number of data points to capture
@@ -154,7 +223,10 @@ def time_test(pa_channel, wait_time, n_points, n_tests):
     
     while j < n_tests:
         
-        print("Run Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
+        start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+        file_start_time = datetime.now().strftime("%m%d%Y%H%M%S")
+
+        print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
 
         # begin new test run
@@ -168,6 +240,8 @@ def time_test(pa_channel, wait_time, n_points, n_tests):
 
         while i < n_points:
             
+            data_dict["time"][i] = datetime.now().strftime("%m/%d/%Y %H:%M%S")
+
             data_dict["purpleair"][0][i] = purple_air.current
             data_dict["purpleair"][1][i] = purple_air.power
             data_dict["purpleair"][2][i] = purple_air.bus_voltage
@@ -203,16 +277,22 @@ def time_test(pa_channel, wait_time, n_points, n_tests):
         avg_dict["averages"][0] = total_current/n_points
         avg_dict["averages"][1] = total_power/n_points
         
-        
         avg_dict["avg_voltage"][0][j] = np.average(data_dict["purpleair"][2])
         avg_dict["avg_voltage"][1][j] = np.average(data_dict["wifi"][2])
         avg_dict["avg_voltage"][2][j] = np.average(data_dict["rpi"][2])
         avg_dict["avg_voltage"][3][j] = np.average(data_dict["comms"][2])
 
-        #print("Averages: ", avg_dict)
-        make_plots(data_dict, avg_dict, n_points*wait_time, j)
+        print("Averages: ", avg_dict)
 
         j += 1
+        
+        #csv writing function goes here
+
+        # want specific name for each PA system for file management
+        #file_name = "test_raw_" + file_start_time
+        #with open(file_name, 'w', newline='') as f:
+        #    if j
+        #    f_writer = csv.writer(f, delimiter= ",")
 
         print("Run End Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
     
@@ -248,6 +328,7 @@ def make_plots(data_plot, avg_plot, test_time, run_number):
     ax[1].text(0.70, 0.95, "Average power: {:.2f} W".format(avg_plot["averages"][1]), transform=ax[1].transAxes, bbox=props)
 
     plt.savefig("{}_{}_second_test.png".format(run_number, test_time))
+    plt.clf()
 
 
 
@@ -277,7 +358,14 @@ if __name__ == '__main__':
     except:
         print("Invalid n_tests, must be greater than 0")
    
-    data_dict, avg_dict = time_test(args.channels, args.wait_time, args.n_points, args.n_tests)
+
+    pa_mux, tca_board = mux_init()
+    channel_enable(pa_mux, args.channels)
+    channel_status(pa_mux)
+
+    file_write(pa_mux, tca_board, args.channels, args.wait_time, args.n_points, args.n_tests)
+    
+    #data_dict, avg_dict = time_test(args.channels, args.wait_time, args.n_points, args.n_tests)
     #make_plots(data_dict, avg_dict)
     
 
