@@ -103,14 +103,15 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
 
     #while j < n_tests:
     # we don't care about the number of tests anymore, this runs continuously and breaks tests into 1 hour chunks.
-    while j != -1:       
+    while j < n_tests:       
         
         start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        file_name = data_dir + "_remotePA_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
+        file_name = data_dir + "remotePA_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
 
         print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
-
+        
+        r = 0
         i = 0
          
         with open(file_name, 'w', newline = '') as f:
@@ -119,24 +120,25 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
         
             # n_points will be hardcoded in the crontab at 3600 (one hour)
 
-            while i < n_points:
+            while i <= n_points:
                 
                 #file_writer = csv.writer(f, delimiter = ',')
         
                 if i == 0:
                     file_writer.writerow(header_vals)
-                row = [datetime.now().replace(microsecond=0), purple_air.current, purple_air.power, purple_air.bus_voltage,
+                else:
+                    row = [datetime.now().replace(microsecond=0), purple_air.current, purple_air.power, purple_air.bus_voltage,
                         wifi.current, wifi.power, wifi.bus_voltage, raspberry_pi.current, raspberry_pi.power, raspberry_pi.bus_voltage,
                         comms.current, comms.power, comms.bus_voltage]
-
-                file_writer.writerow(row)
-                time.sleep(wait_time)
-
+                    file_writer.writerow(row)
+                    time.sleep(wait_time)
+                    r += 1
                 i += 1
             
             j += 1
             
             f.close()
+            print("Time: {} File Closing: {} N Rows: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S"), file_name, r))
 
 
 if __name__ == '__main__':
