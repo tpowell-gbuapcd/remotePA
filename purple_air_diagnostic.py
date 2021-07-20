@@ -152,23 +152,24 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
     header_vals = ['Time', 'PA Current', 'PA Power', 'PA Voltage', 'WIFI Current', 'WIFI Power', 'WIFI Voltage',
                     'RPi Current', 'RPi Power', 'RPi Voltage', 'Comms Current', 'Comms Power', 'Comms Voltage']
 
-    while j < n_tests:
-            
+    #while j < n_tests:
+    # we don't care about the number of tests anymore, this runs continuously and breaks tests into 1 hour chunks.
+    while j != -1:       
+        
         start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         file_name = data_dir + "test_" + str(j) + "_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
 
         print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
 
-        # begin new test run
-        # reinitialize arrays to zero for appending
-        # probably write a write_csv file too, to save test runs in text format
         i = 0
          
         with open(file_name, 'w', newline = '') as f:
         
             file_writer = csv.writer(f, delimiter = ',')
         
+            # n_points will be hardcoded in the crontab at 3600 (one hour)
+
             while i < n_points:
                 
                 #file_writer = csv.writer(f, delimiter = ',')
