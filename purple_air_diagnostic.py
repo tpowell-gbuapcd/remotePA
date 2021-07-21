@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #import qwiic
 import time
 import board
@@ -103,7 +105,7 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
 
     #while j < n_tests:
     # we don't care about the number of tests anymore, this runs continuously and breaks tests into 1 hour chunks.
-    while j < n_tests:       
+    while j != n_tests:       
         
         start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         file_name = data_dir + "remotePA_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
@@ -111,19 +113,15 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
         print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
         
-        r = 0
+        # r = 0 # used for debugging
         i = 0
          
         with open(file_name, 'w', newline = '') as f:
         
             file_writer = csv.writer(f, delimiter = ',')
         
-            # n_points will be hardcoded in the crontab at 3600 (one hour)
-
             while i <= n_points:
                 
-                #file_writer = csv.writer(f, delimiter = ',')
-        
                 if i == 0:
                     file_writer.writerow(header_vals)
                 else:
@@ -132,22 +130,22 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
                         comms.current, comms.power, comms.bus_voltage]
                     file_writer.writerow(row)
                     time.sleep(wait_time)
-                    r += 1
+                    # r += 1 # used for debugging
                 i += 1
             
             j += 1
             
             f.close()
-            print("Time: {} File Closing: {} N Rows: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S"), file_name, r))
+            # print("Time: {} File Closing: {} N Rows: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S"), file_name, r)) # used for debugging
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-w", "--wait_time", type=int, help = "capture data points every wait_time seconds, i.e time resolution of data")
-    parser.add_argument("-p", "--n_points", type=int, help = "Number of data points to capture. Ex.) n_points = 60, --wait_time = 1 is a data point every second for one minute")
-    parser.add_argument("-t", "--n_tests", type=int,  help = "Number of tests to run, break up n_points into n_test chunks. Ex.) --n_tests = 3. --n_points = 60, --wait_time = 1 will give 3 separate tests of data points every second for 60 seconds")
+    parser.add_argument("-w", "--wait_time", type=int, help = "capture data points every wait_time seconds, i.e time resolution of data. Default is 1 second.", default=1)
+    parser.add_argument("-p", "--n_points", type=int, help = "Number of data points to capture. Ex.) n_points = 60, --wait_time = 1 is a data point every second for one minute. Default is 600, or 10 minutes with default wait_time of 1 second.", default=600)
+    parser.add_argument("-t", "--n_tests", type=int,  help = "Number of tests to run, break up n_points into n_test chunks. Ex.) --n_tests = 3. --n_points = 60, --wait_time = 1 will give 3 separate tests of data points every second for 60 seconds. If no parameter is give, an indefinite number of tests will be run. ", default=-1)
     parser.add_argument("-c", "--channels", type=list, help="List of channels to enable on mux board, default=all, Ex.) [0, 3] enables channels 0 and 3", default=[0, 1, 2, 3, 4, 5, 6, 7])
 
     args = parser.parse_args()
