@@ -10,6 +10,7 @@ import adafruit_ssd1306
 import argparse
 import csv
 import os
+import platform
 
 #import matplotlib.pyplot as plt
 import numpy as np
@@ -108,7 +109,7 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
     while j != n_tests:       
         
         start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        file_name = data_dir + "remotePA_" + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
+        file_name = data_dir + str(platform.node()) + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
 
         print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
