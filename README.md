@@ -2,6 +2,9 @@
 
 ### dependencies ###
 
+# QWIIC
+## sudo pip3 install sparkfun-qwiic
+
 # INA219 library 
 ## sudo pip3 install adafruit-circuitpython-ina219
 
