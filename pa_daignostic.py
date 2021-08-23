@@ -69,7 +69,7 @@ def channel_enable(board_name, channels):
     time.sleep(1)
 
 
-def print_data(tca, wait_time, n_points, n_tests):
+def print_data(tca, wait_time, n_tests, avg):
     '''
     Print the data in human readable format to screen. Used for testing
     input param: pa_channel, list of channels to enable (default = all)
@@ -85,7 +85,7 @@ def print_data(tca, wait_time, n_points, n_tests):
     comms  = adafruit_ina219.INA219(tca[3])
     temp = adafruit_mcp9808.MCP9808(tca[6])
     
-    print("Args: ", wait_time, n_points, n_tests)
+    print('Args:\n Wait Time: {}\nTest: {}'.format(wait_time, n_tests))
     print("Testing File Writer")
     print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
     print()
@@ -95,22 +95,75 @@ def print_data(tca, wait_time, n_points, n_tests):
     while j != n_tests:
         
         i=0
+        start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
+        purple_air_current = 0
+        purple_air_power = 0
+        purple_air_voltage = 0
 
-        while i <= n_points:
+        wifi_current = 0
+        wifi_power = 0
+        wifi_voltage = 0
+
+        raspberry_pi_current = 0
+        raspberry_pi_power = 0
+        raspberry_pi_voltage = 0
+
+        comms_current = 0
+        comms_power = 0
+        comms_voltage = 0
+
+        temp_temp = 0
+
+        while i <= avg:
 
             #print('{:<25}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}'.format('Time', 'PA Current', 'PA Power', 'PA Voltage', 
             #        'WIFI Current', 'WIFI Power', 'WIFI Voltage', 'RPi Current', 'RPi Power', 'RPi Voltage', 'Comms Current', 'Comms Power', 'Comms Voltage', 'Temp'))
-            #print()
-            print('Time: {:>34}\nPA Current: {:>15.2f} mA\nPA Power: {:>15.2f} W\nPA Voltage: {:>14.2f} V\nWiFi Current: {:>12.2f} mA\nWiFi Power: {:>13.2f} W\nWiFi Voltage: {:>12.2f} V\nRP Current: {:>15.2f} mA\nRP Power: {:>15.2f} W\nRP Voltage: {:>14.2f} V\nComms Current: {:>11.2f} mA\nComms Power: {:>12.2f} W\nComms Voltage: {:>10.2f} V\nTemp: {:>20.2f} C'.format(datetime.now().strftime("%m:%d:%Y %H:%M:%S"), purple_air.current, purple_air.power, purple_air.bus_voltage, wifi.current, wifi.power, wifi.bus_voltage, raspberry_pi.current, raspberry_pi.power, raspberry_pi.bus_voltage, comms.current, comms.power, comms.bus_voltage, temp.temperature))
+            purple_air_current += purple_air.current
+            purple_air_power += purple_air.power
+            purple_air_voltage += purple_air.bus_voltage
+            wifi_current += wifi.current
+            wifi_power += wifi.power
+            wifi_voltage += wifi.bus_voltage
+            raspberry_pi_current += raspberry_pi.current
+            raspberry_pi_power += raspberry_pi.power
+            raspberry_pi_voltage += raspberry_pi.bus_voltage
+            comms_current += comms.current
+            comms_power += comms.power
+            comms_voltage += comms.bus_voltage
+            temp_temp += temp.temperature
 
-            print()
-            time.sleep(wait_time)         
+            time.sleep(wait_time)
+            
             i += 1
+        
+        avg_purple_air_current = purple_air_current/avg
+        avg_purple_air_power = purple_air_power/avg
+        avg_purple_air_voltage = purple_air_voltage/avg
 
+        avg_wifi_current = wifi_current/avg
+        avg_wifi_power = wifi_power/avg
+        avg_wifi_voltage = wifi_voltage/avg
+
+        avg_raspberry_pi_current = raspberry_pi_current/avg
+        avg_raspberry_pi_power = raspberry_pi_power/avg
+        avg_raspberry_pi_voltage = raspberry_pi_voltage/avg
+
+        avg_comms_current = comms_current/avg
+        avg_comms_power = comms_power/avg
+        avg_comms_voltage = comms_voltage/avg
+
+        avg_temp_temp = temp_temp/avg
+        end_time = datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+        print('Average Time: {} seconds'.format(avg))
+        print('Start: {}\nEmd: {}'.format(start_time, end_time))
+        print('Time: {:>34}\nPA Current: {:>15.2f} mA\nPA Power: {:>15.2f} W\nPA Voltage: {:>14.2f} V\nWiFi Current: {:>12.2f} mA\nWiFi Power: {:>13.2f} W\nWiFi Voltage: {:>12.2f} V\nRP Current: {:>15.2f} mA\nRP Power: {:>15.2f} W\nRP Voltage: {:>14.2f} V\nComms Current: {:>11.2f} mA\nComms Power: {:>12.2f} W\nComms Voltage: {:>10.2f} V\nTemp: {:>20.2f} C'.format(start_time, avg_purple_air_current, avg_purple_air_power, avg_purple_air_voltage, avg_wifi_current, avg_wifi_power, avg_wifi_voltage, avg_raspberry_pi_current, avg_raspberry_pi_power, avg_raspberry_pi_voltage, avg_comms_current, avg_comms_power, avg_comms_voltage, avg_temp_temp))
+
+        print()
+              
         j += 1
 
 
-def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
+def file_write(tca, wait_time, n_points, n_tests, avg):
     '''
     Write the data from the IN219s to file for export. DOES NOT USE ANY DICTIONARIES INITIALIZED ABOVE.
 
@@ -122,10 +175,6 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
     '''
 
     j = 0
-
-    #pa_mux, tca_board = mux_init()
-    #channel_enable(pa_mux, pa_channel)
-    #channel_status(pa_mux)
     
     data_dir = os.getcwd() + "/data/"
 
@@ -134,11 +183,6 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
     wifi = adafruit_ina219.INA219(tca[4])
     comms  = adafruit_ina219.INA219(tca[3])
     temp = adafruit_mcp9808.MCP9808(tca[6])
-    
-    print("Args: ", wait_time, n_points, n_tests)
-    print("Testing File Writer")
-    print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    # begin n number of test runs
     
     # file_name = "test_" +  datetime.now()strftime("%m%d%Y%H%M%S") + ".csv"
     header_vals = ['Time', 'PA Current', 'PA Power', 'PA Voltage', 'WIFI Current', 'WIFI Power', 'WIFI Voltage',
@@ -190,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--n_tests", type=int,  help = "Number of tests to run, break up n_points into n_test chunks. Ex.) --n_tests = 3. --n_points = 60, --wait_time = 1 will give 3 separate tests of data points every second for 60 seconds. If no parameter is give, an indefinite number of tests will be run. ", default=-1)
     parser.add_argument("-c", "--channels", type=list, help="List of channels to enable on mux board, default=all, Ex.) [0, 3] enables channels 0 and 3", default=[0, 1, 2, 3, 4, 5, 6, 7])
     parser.add_argument("-test", "--testing", type=str, help="Is this run for testing or for true data collection? Yes or No?", default="No")
+    parser.add_argument("-a", "--average", type=int, help="The number of points to average over", default=1)
     args = parser.parse_args()
 
     try:
@@ -215,9 +260,9 @@ if __name__ == '__main__':
     channel_status(pa_mux)
     print("File Writer Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
     if args.testing == "No":
-        file_write(pa_mux, tca_board, args.channels, args.wait_time, args.n_points, args.n_tests)
+        file_write(tca_board, args.wait_time, args.n_points, args.n_tests, args.average)
     else:
-        print_data(tca_board, args.wait_time, args.n_points, args.n_tests)        
+        print_data(tca_board, args.wait_time, args.n_tests, args.average)        
     
 
 
