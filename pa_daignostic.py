@@ -193,31 +193,95 @@ def file_write(tca, wait_time, n_points, n_tests, avg):
     while j != n_tests:       
         
         start_time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        file_name = data_dir + str(platform.node()) + datetime.now().strftime("%m%d%Y%H%M%S") + ".csv"
+        file_name = str(platform.node()) + datetime.now().strftime("%m%d%Y") + ".csv"
+        
+        if file_name not in os.listdir(data_dir):
+            with open(data_dir + file_name, 'w', newline='') as f:
+                file_writer = csv.writer(f, delimiter=',')
+                file_writer.writerow(header_vals)
+            f.close()
+
 
         print("Run Start Time: {}".format(start_time))
         print("Test run {} of {}".format(str(j+1), str(n_tests)))
         
         # r = 0 # used for debugging
         i = 0
-        
-        with open(file_name, 'w', newline = '') as f:
+         
+        with open(data_dir+file_name, 'a', newline = '') as f:
         
             file_writer = csv.writer(f, delimiter = ',')
-        
-            while i <= n_points:
                 
-                if i == 0:
-                    file_writer.writerow(header_vals)
-                else:
-                    row = [datetime.now().replace(microsecond=0), purple_air.current, purple_air.power, purple_air.bus_voltage,
-                        wifi.current, wifi.power, wifi.bus_voltage, raspberry_pi.current, raspberry_pi.power, raspberry_pi.bus_voltage,
-                        comms.current, comms.power, comms.bus_voltage, temp.temperature]
-                    print(row)
-                    file_writer.writerow(row)
-                    time.sleep(wait_time)
-                    # r += 1 # used for debugging
+            i=0
+            start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
+            purple_air_current = 0
+            purple_air_power = 0
+            purple_air_voltage = 0
+
+            wifi_current = 0
+            wifi_power = 0
+            wifi_voltage = 0
+
+            raspberry_pi_current = 0
+            raspberry_pi_power = 0
+            raspberry_pi_voltage = 0
+
+            comms_current = 0
+            comms_power = 0
+            comms_voltage = 0
+
+            temp_temp = 0
+
+            while i <= avg:
+
+                #print('{:<25}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}'.format('Time', 'PA Current', 'PA Power', 'PA Voltage', 
+                #        'WIFI Current', 'WIFI Power', 'WIFI Voltage', 'RPi Current', 'RPi Power', 'RPi Voltage', 'Comms Current', 'Comms Power', 'Comms Voltage', 'Temp'))
+                purple_air_current += purple_air.current
+                purple_air_power += purple_air.power
+                purple_air_voltage += purple_air.bus_voltage
+                wifi_current += wifi.current
+                wifi_power += wifi.power
+                wifi_voltage += wifi.bus_voltage
+                raspberry_pi_current += raspberry_pi.current
+                raspberry_pi_power += raspberry_pi.power
+                raspberry_pi_voltage += raspberry_pi.bus_voltage
+                comms_current += comms.current
+                comms_power += comms.power
+                comms_voltage += comms.bus_voltage
+                temp_temp += temp.temperature
+
+                time.sleep(wait_time)
+                
                 i += 1
+        
+            avg_purple_air_current = purple_air_current/avg
+            avg_purple_air_power = purple_air_power/avg
+            avg_purple_air_voltage = purple_air_voltage/avg
+
+            avg_wifi_current = wifi_current/avg
+            avg_wifi_power = wifi_power/avg
+            avg_wifi_voltage = wifi_voltage/avg
+
+            avg_raspberry_pi_current = raspberry_pi_current/avg
+            avg_raspberry_pi_power = raspberry_pi_power/avg
+            avg_raspberry_pi_voltage = raspberry_pi_voltage/avg
+
+            avg_comms_current = comms_current/avg
+            avg_comms_power = comms_power/avg
+            avg_comms_voltage = comms_voltage/avg
+
+            avg_temp_temp = temp_temp/avg
+            end_time = datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+
+               
+            row = [start_time, avg_purple_air_current, avg_purple_air_power, avg_purple_air_voltage,
+                avg_wifi_current, avg_wifi_power, avg_wifi_voltage,
+                avg_raspberry_pi_current, avg_raspberry_pi_power, avg_raspberry_pi_voltage,
+                avg_comms_current, avg_comms_power, avg_comms_voltage, avg_temp_temp]
+            
+            print(file_name)
+            print(row, start_time, end_time)
+            file_writer.writerow(row)
             
             j += 1
             
