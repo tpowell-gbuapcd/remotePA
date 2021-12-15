@@ -101,7 +101,7 @@ comms_oled.show()
 
 i = 0
 
-while i < 20:
+while i < 5000:
 
     # CURRENT
     # CREATE IMAGE FOR DRAWING

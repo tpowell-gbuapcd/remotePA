@@ -4,9 +4,12 @@
 import time
 import board
 import busio
-import adafruit_tca9548a
-import adafruit_ina219
-import adafruit_ssd1306
+import adafruit_tca9548a #mux
+import adafruit_ina219   #current sensor
+import adafruit_mcp9808  #temp sensor
+import adafruit_bme680   #temp, pressure, VOC gas
+import adafruit_scd30    #CO2 gas sensor
+#import adafruit_pm2.5    #plantower sensor
 import argparse
 import csv
 import os
@@ -16,6 +19,7 @@ import platform
 import numpy as np
 
 #from PIL import Image, ImageDraw, ImageFont
+from adafruit_pm25.i2c import PM25_I2C
 from datetime import datetime
 from qwiic import QwiicTCA9548A
 
@@ -90,11 +94,29 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
     
     data_dir = os.getcwd() + "/data/"
 
+    # all of these could probably be their own separate functions, with tca position as an input param
     purple_air = adafruit_ina219.INA219(tca[0])
     raspberry_pi = adafruit_ina219.INA219(tca[7])
     wifi = adafruit_ina219.INA219(tca[4])
     comms  = adafruit_ina219.INA219(tca[3])
+    fans = adafruit_ina2918.INA219(tca[2])
     
+    temp = adafruit_mcp9808.MCP9808(tca[6])
+    #temp: mcp.temperature [C]
+
+    bme = adafruit_bme680.Adafruit_BME680_I2C(tca[5])
+    #temp: bme.temperature [C]
+    #gas: bme.gas [ohms ~ proportional to VOC particles in air]
+    #RH: bme.humidity [%]
+    #presssure: bme.pressure [hPa]    
+
+    scd = adafruit_scd30.SCD30(tca[5]) 
+    #C02: scd.CO2 [PPM]
+    #temp: scd.temperature [C]
+    #RH: scd.relative_humidity [%]
+
+    pm25 = PM25_I2C(tca[5])
+
     print("Args: ", wait_time, n_points, n_tests)
     print("Testing File Writer")
     print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
