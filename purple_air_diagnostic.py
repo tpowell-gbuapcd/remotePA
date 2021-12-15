@@ -38,7 +38,7 @@ def mux_init():
     output type: object
     '''
     
-    i2c = busio.I2C(board.SCL, board.SDA)
+    i2c = busio.I2C(board.SCL, board.SDA, frequency=50000) #frequency added for SCD30
 
     mux = QwiicTCA9548A() # this is used for enabling/disabling mux channels
     tca = adafruit_tca9548a.TCA9548A(i2c) # this is for contacting I2C devices on mux
