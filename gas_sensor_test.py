@@ -48,25 +48,30 @@ while i > 0:
     
     scd = adafruit_scd30.SCD30(tca[5])
 
-    #try:
-    #    if data:
-    print('SCD CO2 Sensor\nCO2: {:>29.2f} PPM\nHumidity: {:>22.2f} %\nTemp: {:>26.2f} C'.format(scd.CO2, scd.relative_humidity, scd.temperature))
+    try:
+        if scd.data_available == 1:
+            print('SCD CO2 Sensor\nCO2: {:>29.2f} PPM\nHumidity: {:>22.2f} %\nTemp: {:>26.2f} C'.format(scd.CO2, scd.relative_humidity, scd.temperature))
+    except:
+        print("Data Available = ", scd.data_available, " 0 = No Data Available, 1 = Data Available")
     print()
             
 
     pm25 = PM25_I2C(tca[5])
     try:
         pmdata = pm25.read()
+        print('PM SENSOR\nPM1.0 [STANDARD]: {:>10} ug/m3\nPM2.5 [STANDARD]: {:>10} ug/m3\nPM10  [STANDARD]: {:>10} ug/m3'.format(pmdata["pm10 standard"], pmdata["pm25 standard"], pmdata["pm100 standard"]))
+        print()
+        print('PM1.0 [ENVIRONMENTAL]: {:>5} ug/m3\nPM2.5 [ENVIRONMENTAL]: {:>5} ug/m3\nPM10  [ENVIRONMENTAL]: {:>5} ug/m3'.format(pmdata["pm10 env"], pmdata["pm25 env"], pmdata["pm100 env"]))    
+        print()
+
     except RuntimeError:
         print('UNABLE TO READ PM2.5 SENSOR, RETRYING')
         continue
 
-    print('PM SENSOR\nPM1.0 [STANDARD]: {:>10} ug/m3\nPM2.5 [STANDARD]: {:>10} ug/m3\nPM10  [STANDARD]: {:>10} ug/m3'.format(pmdata["pm10 standard"], pmdata["pm25 standard"], pmdata["pm100 standard"]))
-    print()
+    #print('PM SENSOR\nPM1.0 [STANDARD]: {:>10} ug/m3\nPM2.5 [STANDARD]: {:>10} ug/m3\nPM10  [STANDARD]: {:>10} ug/m3'.format(pmdata["pm10 standard"], pmdata["pm25 standard"], pmdata["pm100 standard"]))
+    #print()
 
-    print('PM1.0 [ENVIRONMENTAL]: {:>5} ug/m3\nPM2.5 [ENVIRONMENTAL]: {:>5} ug/m3\nPM10  [ENVIRONMENTAL]: {:>5} ug/m3'.format(pmdata["pm10 env"], pmdata["pm25 env"], pmdata["pm100 env"]))    
-
-
+    #print('PM1.0 [ENVIRONMENTAL]: {:>5} ug/m3\nPM2.5 [ENVIRONMENTAL]: {:>5} ug/m3\nPM10  [ENVIRONMENTAL]: {:>5} ug/m3'.format(pmdata["pm10 env"], pmdata["pm25 env"], pmdata["pm100 env"]))    
         
-    print('')
+    print()
     time.sleep(10)
