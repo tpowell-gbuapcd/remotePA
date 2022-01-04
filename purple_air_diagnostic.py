@@ -8,6 +8,8 @@ import adafruit_tca9548a
 import adafruit_ina219
 import adafruit_ssd1306
 import adafruit_mcp9808
+import adafruit_bme680
+import adafruit_scd30
 import argparse
 import csv
 import os
@@ -16,6 +18,7 @@ import numpy as np
 
 from datetime import datetime
 from qwiic import QwiicTCA9548A
+from adafruit_pm25.i2c import PM25_I2C
 
 '''
 LIBRARY FOR REMOTE PA DATA CAPTURE AND EXPORT
@@ -37,7 +40,7 @@ def mux_init():
     mux = QwiicTCA9548A() # this is used for enabling/disabling mux channels
     tca = adafruit_tca9548a.TCA9548A(i2c) # this is for contacting I2C devices on mux
 
-    return mux, tca
+    return mux, tca, i2c
 
 
 def channel_status(board_name):
@@ -49,6 +52,7 @@ def channel_status(board_name):
     '''
 
     print("Channels:")
+    print()
     board_name.list_channels()
 
 
@@ -65,9 +69,192 @@ def channel_enable(board_name, channels):
     '''
 
     print("Enabling Channels {}".format(channels))
+    print()
     board_name.enable_channels(channels)
     time.sleep(1)
 
+
+def device_list(device):
+    '''
+    Return a list of the hex addresses for all connected I2C devices. This will include the MUX breakout
+
+    0x12 = PM sensor
+    0x18 = MCP9808
+    0x40 = INA219, there is only one address here for all 5 INA219s. I could solder the address pads to change the addresses (0x40-0x44), but I think this is unnecessary. If one is there, then they will all be there and they will be connected to predesignated MUX ports.
+    0x61 = SCD-30
+    0x70 = MUX breakout
+    0x77 = BME688
+
+    input param: device, the i2c object needed to call the scan() function.
+    input type: object
+
+    return: a list of the hex addresses of the connected I2C devices 
+    '''
+
+    return [hex(x) for x in device.scan()]
+
+
+def make_device_dict(list_of_devices):
+    '''
+    Create a dictionary of devices and their data attributes. Also create the objects needed to call the individual data points on each sensor.
+    
+    input param: list_of_devices, the list of I2C devices by hex address
+    input type: list
+    
+    output param: dict_of_devices
+    output type: dict
+    '''
+    
+    dict_of_devices = {}
+    
+    if '0x12' in list_of_devices:
+        print('PM Sensor connected')
+        dict_of_devices['PM'] = {'PM1.0 ENV': [], 'PM2.5 ENV': [], 'PM10.0 ENV': [], 'PM1.0 ST': [], 'PM2.5 ST': [], 'PM10.0 ST': []}
+
+    if '0x18' in list_of_devices:
+        print('MCP9808 connected')
+        dict_of_devices['MCP'] = {'Temp': []}
+
+    if '0x40' in list_of_devices:
+        print('INA219 connected')
+        dict_of_devices['Purpleair'] = {'Current': [], 'Power': [], 'Voltage': []}
+        dict_of_devices['WIFI'] = {'Current': [], 'Power': [], 'Voltage': []}
+        dict_of_devices['RPI'] = {'Current': [], 'Power': [], 'Voltage': []}
+        dict_of_devices['Comms'] = {'Current': [], 'Power': [], 'Voltage': []}
+        dict_of_devices['Fans'] = {'Current': [], 'Power': [], 'Voltage': []}
+    
+    if '0x61' in list_of_devices:
+        print('SCD-30 connected')
+        dict_of_devices['SCD'] = {'CO2': [], 'RH': [], 'Temp': []}
+
+    if '0x70' in list_of_devices:
+        print('MUX breakout connected')
+    if '0x77' in list_of_devices:
+        print('BME688 connected')
+        dict_of_devices['BME'] = {'Gas': [], 'RH': [], 'Pressure': [], 'Temp': []}
+ 
+    print()
+
+    return dict_of_devices
+
+
+def capture_data(device_dict, tca, wait_time, n_points):
+    '''
+    Capture data over the desired averaging time. Ex.) For the default wait time of 2 seconds and 300 points, this will be an average over 10 minutes.
+    '''
+
+    #print(device_dict)
+    device_list = list(device_dict.keys())
+    print(device_list)
+
+    #initialize objects needed to call individual data points on each sensor
+    if 'PM' in device_list:
+        pm = PM25_I2C(tca[5])
+    if 'MCP' in device_list:
+        mcp = adafruit_mcp9808.MCP9808(tca[6])
+    if 'Purpleair' in device_list:
+        purple_air = adafruit_ina219.INA219(tca[0])
+    if 'WIFI' in device_list:
+        wifi = adafruit_ina219.INA219(tca[7])
+    if 'RPI' in device_list:
+        rpi = adafruit_ina219.INA219(tca[4])
+    if 'Comms' in device_list:
+        comms = adafruit_ina219.INA219(tca[3])
+    if 'Fans' in device_list:
+        fans = adafruit_ina219.INA219(tca[2])
+    if 'SCD' in device_list:
+        scd = adafruit_scd30.SCD30(tca[5])
+    if 'BME' in device_list:
+        bme = adafruit_bme680.Adafruit_BME680_I2C(tca[5])
+
+    print("Wait Time = ", wait_time, " s")
+    print("Number of Points To Average Over = ", n_points, " Points")
+    
+    print("Testing File Writer")
+    print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
+    print()
+        
+    i = 1
+    start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
+    
+    while i <= n_points:
+        if 'PM' in device_list:
+            try:
+                pmdata = pm.read()
+                device_dict['PM']['PM1.0 ENV'].append(pmdata["pm10 env"])
+                device_dict['PM']['PM2.5 ENV'].append(pmdata["pm25 env"])
+                device_dict['PM']['PM10.0 ENV'].append(pmdata["pm100 env"])
+                device_dict['PM']['PM1.0 ST'].append(pmdata["pm10 standard"])
+                device_dict['PM']['PM2.5 ST'].append(pmdata["pm25 standard"])
+                device_dict['PM']['PM10.0 ST'].append(pmdata["pm100 standard"])
+            except:
+                Exception        
+        
+        if 'SCD' in device_list:
+            try:
+                if scd.data_available == 1:
+                    device_dict['SCD']['CO2'].append(scd.CO2)
+                    device_dict['SCD']['RH'].append(scd.relative_humidity)
+                    device_dict['SCD']['Temp'].append(scd.temperature)
+            except:
+                Exception
+
+        if 'Purpleair' in device_list:
+            device_dict['Purpleair']['Current'].append(purple_air.current)
+            device_dict['Purpleair']['Power'].append(purple_air.power)
+            device_dict['Purpleair']['Voltage'].append(purple_air.bus_voltage)
+
+        if 'WIFI' in device_list:
+            device_dict['WIFI']['Current'].append(wifi.current)
+            device_dict['WIFI']['Power'].append(wifi.power)
+            device_dict['WIFI']['Voltage'].append(wifi.bus_voltage)
+
+        if 'RPI' in device_list:
+            device_dict['RPI']['Current'].append(rpi.current)
+            device_dict['RPI']['Power'].append(rpi.power)
+            device_dict['RPI']['Voltage'].append(rpi.bus_voltage)
+
+        if 'Comms' in device_list:
+            device_dict['Comms']['Current'].append(comms.current)
+            device_dict['Comms']['Power'].append(comms.power)
+            device_dict['Comms']['Voltage'].append(comms.bus_voltage)
+
+        if 'Fans' in device_list:
+            device_dict['Fans']['Current'].append(fans.current)
+            device_dict['Fans']['Power'].append(fans.power)
+            device_dict['Fans']['Voltage'].append(fans.bus_voltage)
+        
+        if 'MCP' in device_list:
+            device_dict['MCP']['Temp'].append(mcp.temperature)
+
+        if 'BME' in device_list:
+            device_dict['BME']['Gas'].append(bme.gas)
+            device_dict['BME']['RH'].append(bme.humidity)
+            device_dict['BME']['Pressure'].append(bme.pressure)
+            device_dict['BME']['Temp'].append(bme.temperature)
+
+        #for key, val in device_dict.items():
+            #print(key, val)
+
+        time.sleep(wait_time)
+        i += 1
+
+    end_time = datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+    print('Start: {}\nEnd: {}'.format(start_time, end_time))
+
+    return device_dict
+
+
+def get_averages(data_dict):
+
+    avg_dict = {}
+
+    for device in data_dict.keys():
+        avg_dict[device] = {}
+        for param in data_dict[device].keys():
+            avg_dict[device][param] =  sum(data_dict[device][param])/len(data_dict[device][param])
+
+    print(avg_dict)
 
 def print_data(tca, wait_time, n_points, n_tests):
     '''
@@ -180,7 +367,7 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
             f.close()
             # print("Time: {} File Closing: {} N Rows: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S"), file_name, r)) # used for debugging
 
-
+'''
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -219,6 +406,6 @@ if __name__ == '__main__':
     else:
         print_data(tca_board, args.wait_time, args.n_points, args.n_tests)        
     
-
+'''
 
 
