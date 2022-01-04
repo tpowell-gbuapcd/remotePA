@@ -13,7 +13,7 @@ import purple_air_diagnostic as pa
 #i2c = busio.I2C(board.SCL, board.SDA)
 #i2c = board.I2C()
 mux, tca, i2c = pa.mux_init()
-pa.channel_enable(mux, [0,1,2,3,4,5,6,7])
+#pa.channel_enable(mux, [0,1,2,3,4,5,6,7])
 
 #device_list = pa.device_list(i2c)
 #device_data = pa.make_device_dict(device_list, tca)
@@ -25,7 +25,7 @@ pa.channel_enable(mux, [0,1,2,3,4,5,6,7])
 #print(objs)
 
 wait_time = 2
-n_points = 2
+n_points = 30
 
 j = 0 
 while j == 0:
@@ -33,4 +33,6 @@ while j == 0:
     device_list = pa.device_list(i2c)
     device_data = pa.make_device_dict(device_list)
     data_dict = pa.capture_data(device_data, tca, wait_time, n_points)
-    pa.get_averages(data_dict)
+    avg_dict = pa.get_averages(data_dict)
+    pa.print_avg_data(avg_dict)
+    pa.csv_write(avg_dict)

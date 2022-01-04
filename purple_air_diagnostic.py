@@ -80,7 +80,8 @@ def device_list(device):
 
     0x12 = PM sensor
     0x18 = MCP9808
-    0x40 = INA219, there is only one address here for all 5 INA219s. I could solder the address pads to change the addresses (0x40-0x44), but I think this is unnecessary. If one is there, then they will all be there and they will be connected to predesignated MUX ports.
+    0x40 = INA219, there is only one address here for all 5 INA219s. I could solder the address pads to change the addresses (0x40-0x44),
+    but I think this is unnecessary. If one is there, then they will all be there and they will be connected to predesignated MUX ports.
     0x61 = SCD-30
     0x70 = MUX breakout
     0x77 = BME688
@@ -141,11 +142,24 @@ def make_device_dict(list_of_devices):
 def capture_data(device_dict, tca, wait_time, n_points):
     '''
     Capture data over the desired averaging time. Ex.) For the default wait time of 2 seconds and 300 points, this will be an average over 10 minutes.
+    
+    input param: device_dict, nested dictionary where the keys are the sensor and the data parameter ex.) device_dict['MCP']['Temp']
+    input type: dictionary
+
+    input param: tca, object needed to call the individual channels on the MUX breakout board
+    input type: object
+
+    input param: wait_time, the amount of time between each data acquisition. Should be 2 seconds minimum to account for clock stretching on PM sensor.
+    input type: integer
+
+    input param: n_points, the number of data points to acquire. n_points * wait_time gives the time of each "averaged" time. 
+    input type: integer
+
+    output_param: device_dict, the filled nested dictionary. Each list is n_points * wait_time in size.
+    output_type: dictionary
     '''
 
-    #print(device_dict)
     device_list = list(device_dict.keys())
-    print(device_list)
 
     #initialize objects needed to call individual data points on each sensor
     if 'PM' in device_list:
@@ -176,7 +190,8 @@ def capture_data(device_dict, tca, wait_time, n_points):
         
     i = 1
     start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
-    
+    device_dict['Time'] = start_time
+
     while i <= n_points:
         if 'PM' in device_list:
             try:
@@ -233,8 +248,6 @@ def capture_data(device_dict, tca, wait_time, n_points):
             device_dict['BME']['Pressure'].append(bme.pressure)
             device_dict['BME']['Temp'].append(bme.temperature)
 
-        #for key, val in device_dict.items():
-            #print(key, val)
 
         time.sleep(wait_time)
         i += 1
@@ -246,16 +259,127 @@ def capture_data(device_dict, tca, wait_time, n_points):
 
 
 def get_averages(data_dict):
+    '''
+    Average each list in data_dict. Create a new dictionary that has the same keys as data_dict but each key has only one
+    float value rather than a list. This is the dictionary that will be converted to csv and then sent from the raspberry
+    pi to the linux box where plotting occurs.
+
+    input param: data_dict, nested dictionary of data values
+    input type: dictionary
+
+    output param: avg_dict, nested dictionary of averaged data values from data_dict
+    output type: dictionary
+    '''
 
     avg_dict = {}
 
     for device in data_dict.keys():
-        avg_dict[device] = {}
-        for param in data_dict[device].keys():
-            avg_dict[device][param] =  sum(data_dict[device][param])/len(data_dict[device][param])
+        if device is 'Time':
+            # the start time of the data acquisition is not averaged since there's only one point and it's a datetime string.
+            avg_dict[device] = data_dict[device]
+        else:
+            #everything else is averaged
+            avg_dict[device] = {}
+            for param in data_dict[device].keys():
+                avg_dict[device][param] =  sum(data_dict[device][param])/len(data_dict[device][param])
+        
 
-    print(avg_dict)
+    return avg_dict
 
+
+def print_avg_data(avg_data_dict):
+    '''
+    Print the average data dictionary to screen in an easy to read format.
+    
+    input param: avg_data_dict, nested dictionary of averaged data values.
+    input type: dictionary
+    '''
+
+    for device in avg_data_dict.keys():
+        if device is 'Time':
+            print('Start Time: {}'.format(avg_data_dict[device]))
+        else:
+            for param in avg_data_dict[device].keys():
+                #print(device, param)
+                print('Device: {:<10} Data: {:<10} Value: {:<10.2f}'.format(device, param, avg_data_dict[device][param]))
+    
+
+def make_header(avg_data_dict):
+    '''
+    Create the header for the CSV file. Just a list of device keys plus the data parameter keys.
+
+    
+    input param: avg_data_dict, nested dictionary of averaged data values
+    input type: dictionary
+
+    output param: header, list of header values needed for the csv file
+    output type: list
+    '''
+    
+    #Time needs to be the first column of the csv
+    header = ['Time']
+
+    for device in avg_data_dict.keys():
+        if device is 'Time':
+            next
+        else:
+            for param in avg_data_dict[device].keys():
+                header.append(device + ' ' + param)
+    
+    return header
+
+
+def csv_write(avg_data_dict):
+    '''
+    Write the averaged data to a csv file so that it can be rsynced to the linux box
+
+    input param: avg_data_dict, nested dictionary of averaged data values
+    input type: dictionary
+    '''
+
+    data_dir = os.getcwd() + "/data/"
+    file_name = data_dir + str(platform.node()) + datetime.now().strftime("%m%d%Y") + ".csv"
+    csv_header = make_header(avg_data_dict)
+   
+    #Time needs to be the first column in the csv, this will always exist in the dictionary so I will hardcode it in
+
+    with open(file_name, 'a+', newline = '') as f:
+        
+        file_writer = csv.writer(f, delimiter = ',')
+
+        #write the rows of data if the file size is greater than 0 (AKA it doesn't exist yet). 
+        #write the header and the rows of data if it is the first write
+        if os.stat(file_name).st_size > 0:
+            
+            print("Writing Row")
+            #time is the first column of the csv, this is always true
+            row = [avg_data_dict['Time']]
+            for device in avg_data_dict.keys():
+                #skip 'Time' in loop
+                if device is 'Time':
+                    next
+                else:
+                    for param in avg_data_dict[device].keys():
+                        #append data based on device and param key
+                        row.append(avg_data_dict[device][param])
+            file_writer.writerow(row)
+        else:
+            file_writer.writerow(csv_header)
+            row = [avg_data_dict['Time']]
+            
+            for device in avg_data_dict.keys():
+                #skip 'Time' in loop
+                if device is 'Time':
+                    next
+                else:
+                    for param in avg_data_dict[device].keys():
+                        #append data based on device and param key
+                        row.append(avg_data_dict[device][param])
+            file_writer.writerow(row)
+
+        f.close()
+            
+ 
 def print_data(tca, wait_time, n_points, n_tests):
     '''
     Print the data in human readable format to screen. Used for testing
@@ -285,9 +409,6 @@ def print_data(tca, wait_time, n_points, n_tests):
 
         while i <= n_points:
 
-            #print('{:<25}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}{:<15}'.format('Time', 'PA Current', 'PA Power', 'PA Voltage', 
-            #        'WIFI Current', 'WIFI Power', 'WIFI Voltage', 'RPi Current', 'RPi Power', 'RPi Voltage', 'Comms Current', 'Comms Power', 'Comms Voltage', 'Temp'))
-            #print()
             print('Time: {:>34}\nPA Current: {:>15.2f} mA\nPA Power: {:>15.2f} W\nPA Voltage: {:>14.2f} V\nWiFi Current: {:>12.2f} mA\nWiFi Power: {:>13.2f} W\nWiFi Voltage: {:>12.2f} V\nRP Current: {:>15.2f} mA\nRP Power: {:>15.2f} W\nRP Voltage: {:>14.2f} V\nComms Current: {:>11.2f} mA\nComms Power: {:>12.2f} W\nComms Voltage: {:>10.2f} V\nTemp: {:>20.2f} C'.format(datetime.now().strftime("%m:%d:%Y %H:%M:%S"), purple_air.current, purple_air.power, purple_air.bus_voltage, wifi.current, wifi.power, wifi.bus_voltage, raspberry_pi.current, raspberry_pi.power, raspberry_pi.bus_voltage, comms.current, comms.power, comms.bus_voltage, temp.temperature))
 
             print()
@@ -310,10 +431,6 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
 
     j = 0
 
-    #pa_mux, tca_board = mux_init()
-    #channel_enable(pa_mux, pa_channel)
-    #channel_status(pa_mux)
-    
     data_dir = os.getcwd() + "/data/"
 
     purple_air = adafruit_ina219.INA219(tca[0])
