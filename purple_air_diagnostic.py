@@ -17,6 +17,7 @@ import platform
 import numpy as np
 
 from datetime import datetime
+from datetime import timedelta
 from qwiic import QwiicTCA9548A
 from adafruit_pm25.i2c import PM25_I2C
 
@@ -181,18 +182,20 @@ def capture_data(device_dict, tca, wait_time, n_points):
     if 'BME' in device_list:
         bme = adafruit_bme680.Adafruit_BME680_I2C(tca[5])
 
-    print("Wait Time = ", wait_time, " s")
-    print("Number of Points To Average Over = ", n_points, " Points")
+    #print("Wait Time = ", wait_time, " s")
+    #print("Number of Points To Average Over = ", n_points, " Points")
     
-    print("Testing File Writer")
-    print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    print()
+    #print("Testing File Writer")
+    #print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
+    #print()
         
     i = 1
     start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
     device_dict['Time'] = start_time
+    wait_avg = 0
 
     while i <= n_points:
+        start = datetime.now()
         if 'PM' in device_list:
             try:
                 pmdata = pm.read()
@@ -249,11 +252,20 @@ def capture_data(device_dict, tca, wait_time, n_points):
             device_dict['BME']['Temp'].append(bme.temperature)
 
 
-        time.sleep(wait_time)
+        # the above portion takes ~.5 seconds to run. To make sure we get close to the desired n_points*wait_time
+        # averaging time, we need to subtract how long this portion of code takes to run from the input wait_time.
+        #time.sleep(wait_time)
+        end = datetime.now()
+        diff = end - start
+        new_wait = (timedelta(seconds=wait_time) - diff)
+        if new_wait.total_seconds() > wait_time:
+            new_wait = timedelta(seconds=wait_time) 
+        wait_avg += new_wait.total_seconds()
+        time.sleep(new_wait.total_seconds())
         i += 1
 
     end_time = datetime.now().strftime('%m/%d/%Y %H:%M:%S')
-    print('Start: {}\nEnd: {}'.format(start_time, end_time))
+    print('Start: {}\nEnd: {}\nWait Average: {}\ni: {}'.format(start_time, end_time, wait_avg/i, i))
 
     return device_dict
 
