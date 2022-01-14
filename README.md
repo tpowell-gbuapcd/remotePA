@@ -20,9 +20,10 @@
 # CCS Gas sensor
 ## sudo pip3 install adafruit-circuitpython-ccs811
 
-# CO2 Gas sensor
+# CO2 Gas sensors
 ## sudo pip3 install adafruit-circuitpython-scd30
+## sudo pip3 install adafruit-circuitpython-scd4x
 
-# LCD display (not running in current diagnostic output 
+# LCD display (not running in current diagnostic output)
 ## pip3 install adafruit-circuitpython-ssd1306 
 ## sudo apt-get install python3-pil
