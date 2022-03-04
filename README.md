@@ -20,6 +20,8 @@
 # CCS Gas sensor
 ## sudo pip3 install adafruit-circuitpython-ccs811
 
+# PM Sensor
+## sudo pip3 install adafruit-circuitpython-PM25
 # CO2 Gas sensors
 ## sudo pip3 install adafruit-circuitpython-scd30
 ## sudo pip3 install adafruit-circuitpython-scd4x
