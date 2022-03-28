@@ -184,10 +184,11 @@ def capture_data(device_dict, tca, wait_time, n_points):
         bme = adafruit_bme680.Adafruit_BME680_I2C(tca[5])
 
     i = 1
+    PM_error = False
     start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
     device_dict['Time'] = start_time
     wait_avg = 0
-
+    
     while i <= n_points:
         start = datetime.now()
         if 'PM' in device_list:
@@ -200,8 +201,9 @@ def capture_data(device_dict, tca, wait_time, n_points):
                 device_dict['PM']['PM2.5 ST'].append(pmdata["pm25 standard"])
                 device_dict['PM']['PM10.0 ST'].append(pmdata["pm100 standard"])
             except Exception as e:
-                print("ERROR READING PM DATA")
-                print("ERROR: {}".format(e))     
+                print("ERROR READING PM DATA", flush=True)
+                print("ERROR: {}".format(e), flush=True)
+                PM_error = True
         
         if 'SCD' in device_list:
             try:
@@ -210,8 +212,8 @@ def capture_data(device_dict, tca, wait_time, n_points):
                     device_dict['SCD']['RH'].append(scd.relative_humidity)
                     device_dict['SCD']['Temp'].append(scd.temperature)
             except Exception as e:
-                print("ERROR READING CO2 DATA")
-                print("ERROR: {}".format(e))
+                print("ERROR READING CO2 DATA", flush=True)
+                print("ERROR: {}".format(e), flush=True)
 
         if 'Purpleair' in device_list:
             device_dict['Purpleair']['Current'].append(purple_air.current)
@@ -259,6 +261,15 @@ def capture_data(device_dict, tca, wait_time, n_points):
         wait_avg += new_wait.total_seconds()
         time.sleep(new_wait.total_seconds())
         i += 1
+
+    # sometimes there are checksum errors with the PM devices. It's a runtime error, so the script still runs. Not sure how this
+    # affects data quality but the below should at least let us know how it affects the dictionary size
+    if PM_error == True:
+        print('PM ERROR ENCOUNTERED')
+        print('PM2.5 Size: {}'.format(len(device_dict['PM']['PM2.5 ENV'])), flush=True)
+        print('PM10 Size: {}'.format(len(device_dict['PM']['PM10.0 ENV'])), flush=True)
+        print('CO2 Size: {}'.format(len(device_dict['SCD']['CO2'])), flush=True)
+        print('RPI Size: {}'.format(len(device_dict['RPI']['Current'])), flush=True)
 
     end_time = datetime.now().strftime('%m/%d/%Y %H:%M:%S')
     print('Start: {}\nEnd: {}\nWait Average: {}\ni: {}'.format(start_time, end_time, wait_avg/i, i))
