@@ -84,6 +84,7 @@ def device_list(device):
     0x40 = INA219, there is only one address here for all 5 INA219s. I could solder the address pads to change the addresses (0x40-0x44),
     but I think this is unnecessary. If one is there, then they will all be there and they will be connected to predesignated MUX ports.
     0x61 = SCD-30
+    0x62 = SCD-40
     0x70 = MUX breakout
     0x77 = BME688
 
@@ -182,13 +183,6 @@ def capture_data(device_dict, tca, wait_time, n_points):
     if 'BME' in device_list:
         bme = adafruit_bme680.Adafruit_BME680_I2C(tca[5])
 
-    #print("Wait Time = ", wait_time, " s")
-    #print("Number of Points To Average Over = ", n_points, " Points")
-    
-    #print("Testing File Writer")
-    #print("Data Capture Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    #print()
-        
     i = 1
     start_time = datetime.now().strftime('%m:%d:%Y %H:%M:%S')
     device_dict['Time'] = start_time
@@ -205,8 +199,9 @@ def capture_data(device_dict, tca, wait_time, n_points):
                 device_dict['PM']['PM1.0 ST'].append(pmdata["pm10 standard"])
                 device_dict['PM']['PM2.5 ST'].append(pmdata["pm25 standard"])
                 device_dict['PM']['PM10.0 ST'].append(pmdata["pm100 standard"])
-            except:
-                Exception        
+            except Exception as e:
+                print("ERROR READING PM DATA")
+                print("ERROR: {}".format(e))     
         
         if 'SCD' in device_list:
             try:
@@ -214,8 +209,9 @@ def capture_data(device_dict, tca, wait_time, n_points):
                     device_dict['SCD']['CO2'].append(scd.CO2)
                     device_dict['SCD']['RH'].append(scd.relative_humidity)
                     device_dict['SCD']['Temp'].append(scd.temperature)
-            except:
-                Exception
+            except Exception as e:
+                print("ERROR READING CO2 DATA")
+                print("ERROR: {}".format(e))
 
         if 'Purpleair' in device_list:
             device_dict['Purpleair']['Current'].append(purple_air.current)
@@ -292,9 +288,12 @@ def get_averages(data_dict):
         else:
             #everything else is averaged
             avg_dict[device] = {}
-            for param in data_dict[device].keys():
-                avg_dict[device][param] =  sum(data_dict[device][param])/len(data_dict[device][param])
-        
+            try:
+                for param in data_dict[device].keys():
+                    avg_dict[device][param] =  sum(data_dict[device][param])/len(data_dict[device][param])
+            except Exception as e:
+                print("ERROR OCCURED AVERAGING {} {}".format(device, param))
+                print("ERROR: {}".format(e))
 
     return avg_dict
 
@@ -355,41 +354,45 @@ def csv_write(avg_data_dict):
    
     #Time needs to be the first column in the csv, this will always exist in the dictionary so I will hardcode it in
 
-    with open(file_name, 'a+', newline = '') as f:
-        
-        file_writer = csv.writer(f, delimiter = ',')
-
-        #write the rows of data if the file size is greater than 0 (AKA it doesn't exist yet). 
-        #write the header and the rows of data if it is the first write
-        if os.stat(file_name).st_size > 0:
+    try:
+        with open(file_name, 'a+', newline = '') as f:
             
-            print("Writing Row")
-            #time is the first column of the csv, this is always true
-            row = [avg_data_dict['Time']]
-            for device in avg_data_dict.keys():
-                #skip 'Time' in loop
-                if device is 'Time':
-                    next
-                else:
-                    for param in avg_data_dict[device].keys():
-                        #append data based on device and param key
-                        row.append(avg_data_dict[device][param])
-            file_writer.writerow(row)
-        else:
-            file_writer.writerow(csv_header)
-            row = [avg_data_dict['Time']]
-            
-            for device in avg_data_dict.keys():
-                #skip 'Time' in loop
-                if device is 'Time':
-                    next
-                else:
-                    for param in avg_data_dict[device].keys():
-                        #append data based on device and param key
-                        row.append(avg_data_dict[device][param])
-            file_writer.writerow(row)
+            file_writer = csv.writer(f, delimiter = ',')
 
-        f.close()
+            #write the rows of data if the file size is greater than 0 (AKA it doesn't exist yet). 
+            #write the header and the rows of data if it is the first write
+            if os.stat(file_name).st_size > 0:
+                
+                print("Writing Row")
+                #time is the first column of the csv, this is always true
+                row = [avg_data_dict['Time']]
+                for device in avg_data_dict.keys():
+                    #skip 'Time' in loop
+                    if device is 'Time':
+                        next
+                    else:
+                        for param in avg_data_dict[device].keys():
+                            #append data based on device and param key
+                            row.append(avg_data_dict[device][param])
+                file_writer.writerow(row)
+            else:
+                file_writer.writerow(csv_header)
+                row = [avg_data_dict['Time']]
+                
+                for device in avg_data_dict.keys():
+                    #skip 'Time' in loop
+                    if device is 'Time':
+                        next
+                    else:
+                        for param in avg_data_dict[device].keys():
+                            #append data based on device and param key
+                            row.append(avg_data_dict[device][param])
+                file_writer.writerow(row)
+
+            f.close()
+    except Exception as e:
+        print("ERROR WRITING CSV")
+        print("ERROR: {}".format(e))
             
  
 def print_data(tca, wait_time, n_points, n_tests):
@@ -494,47 +497,4 @@ def file_write(mux, tca, pa_channel, wait_time, n_points, n_tests):
             j += 1
             
             f.close()
-            # print("Time: {} File Closing: {} N Rows: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S"), file_name, r)) # used for debugging
-
-'''
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("-w", "--wait_time", type=int, help = "capture data points every wait_time seconds, i.e time resolution of data. Default is 1 second.", default=1)
-    parser.add_argument("-p", "--n_points", type=int, help = "Number of data points to capture. Ex.) n_points = 60, --wait_time = 1 is a data point every second for one minute. Default is 600, or 10 minutes with default wait_time of 1 second.", default=600)
-    parser.add_argument("-t", "--n_tests", type=int,  help = "Number of tests to run, break up n_points into n_test chunks. Ex.) --n_tests = 3. --n_points = 60, --wait_time = 1 will give 3 separate tests of data points every second for 60 seconds. If no parameter is give, an indefinite number of tests will be run. ", default=-1)
-    parser.add_argument("-c", "--channels", type=list, help="List of channels to enable on mux board, default=all, Ex.) [0, 3] enables channels 0 and 3", default=[0, 1, 2, 3, 4, 5, 6, 7])
-    parser.add_argument("-test", "--testing", type=str, help="Is this run for testing or for true data collection? Yes or No?", default="No")
-    args = parser.parse_args()
-
-    try:
-        args.wait_time > 0
-    except: 
-        print("Invalid wait_time, must be greater than 0")
-
-    try:
-        args.n_points > 0
-    except:
-        print("Invalid n_points, must be greater than 0")
-
-    try:
-        args.n_tests > 0
-    except:
-        print("Invalid n_tests, must be greater than 0")
-   
-    print("MUX init Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    pa_mux, tca_board = mux_init()
-    print("Channel Enable Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    channel_enable(pa_mux, args.channels)
-    print("Channel Status Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    channel_status(pa_mux)
-    print("File Writer Start Time: {}".format(datetime.now().strftime("%m/%d/%Y %H:%M:%S")))
-    if args.testing == "No":
-        file_write(pa_mux, tca_board, args.channels, args.wait_time, args.n_points, args.n_tests)
-    else:
-        print_data(tca_board, args.wait_time, args.n_points, args.n_tests)        
-    
-'''
-
 
