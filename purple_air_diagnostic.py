@@ -36,7 +36,7 @@ def mux_init():
     output type: object
     '''
     
-    i2c = busio.I2C(board.SCL, board.SDA)
+    i2c = busio.I2C(board.SCL, board.SDA)#, frequency=100000)
 
     mux = QwiicTCA9548A() # this is used for enabling/disabling mux channels
     tca = adafruit_tca9548a.TCA9548A(i2c) # this is for contacting I2C devices on mux
@@ -94,7 +94,17 @@ def device_list(device):
     return: a list of the hex addresses of the connected I2C devices 
     '''
 
-    return [hex(x) for x in device.scan()]
+    devices = [hex(x) for x in device.scan()]
+    #print("{} Device List: {}".format(datetime.now(), devices), flush=True)
+
+    while '0x12' not in devices:
+        print("PM NOT IN DEVICE LIST, RETRYING")
+        time.sleep(1)
+        devices = [hex(x) for x in device.scan()]
+        #print("{} Devices List: {}".format(datetime.now(), devices), flush=True)
+    
+    return devices    
+    #return [hex(x) for x in device.scan()]
 
 
 def make_device_dict(list_of_devices):
